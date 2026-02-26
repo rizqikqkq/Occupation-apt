@@ -1,4 +1,4 @@
-package space.rnpp.androidpretest
+package space.rnpp.apt
 
 import org.junit.Test
 
