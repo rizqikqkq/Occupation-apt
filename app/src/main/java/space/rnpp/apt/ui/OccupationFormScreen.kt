@@ -49,23 +49,23 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import space.rnpp.apt.model.CompanySuggestion
 import space.rnpp.apt.model.OccupationFormUiState
 import space.rnpp.apt.ui.theme.*
+import space.rnpp.apt.util.OccupationValidator
 import space.rnpp.apt.viewmodel.OccupationFormViewModel
 
 
 private val FieldCorner  = RoundedCornerShape(12.dp)
-private var _systemPadding: PaddingValues? = null
 
 @Composable
 fun OccupationFormScreen(
     vm: OccupationFormViewModel = viewModel(),
     onBackPressed: () -> Unit = {},
-    systemPadding: PaddingValues
+    systemPadding: PaddingValues = PaddingValues(0.dp)
 ) {
     val uiState by vm.uiState.collectAsStateWithLifecycle()
-    _systemPadding = systemPadding
 
     OccupationFormContent(
         uiState                  = uiState,
+        systemPadding            = systemPadding,
         onBackPressed            = onBackPressed,
         onCompanyNameChanged     = { value      -> vm.onCompanyNameChanged(value) },
         onCompanyNameCleared     = {               vm.onCompanyNameChanged("") },
@@ -82,6 +82,7 @@ fun OccupationFormScreen(
 @Composable
 private fun OccupationFormContent(
     uiState:                 OccupationFormUiState,
+    systemPadding:           PaddingValues,
     onBackPressed:           () -> Unit,
     onCompanyNameChanged:    (String) -> Unit,
     onCompanyNameCleared:    () -> Unit,
@@ -99,13 +100,12 @@ private fun OccupationFormContent(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.White)
-            .padding(
-                top = _systemPadding!!.calculateTopPadding()),
     ) {
         Row(
-            modifier          = Modifier
+            modifier = Modifier
                 .fillMaxWidth()
                 .background(Color.White)
+                .padding(top = systemPadding.calculateTopPadding())
                 .padding(horizontal = 8.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -198,14 +198,12 @@ private fun OccupationFormContent(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            CustomInputField(
+            NpwpField(
                 value         = uiState.input.npwp,
                 onValueChange = onNpwpChanged,
-                placeholder   = "NPWP (opsional)",
-                hint          = "Sesuai aturan pemerintah, NIK dipakai untuk NPWP. Kalau belum diadanin, lakukan segera setelah registrasi ya!",
                 error         = uiState.errors.npwpError,
-                isValid       = uiState.input.npwp.isNotBlank() && uiState.errors.npwpError == null,
-                keyboardType  = KeyboardType.Number
+                isValid       = uiState.input.npwp.isNotBlank() &&
+                                uiState.errors.npwpError == null
             )
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -215,7 +213,8 @@ private fun OccupationFormContent(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(Color.White)
-                .padding(horizontal = 20.dp, vertical = 16.dp)
+                .padding(horizontal = 20.dp, vertical = 12.dp)
+                .padding(bottom = systemPadding.calculateBottomPadding())
         ) {
             Button(
                 onClick  = onNext,
@@ -241,6 +240,84 @@ private fun OccupationFormContent(
 }
 
 //region Components
+@Composable
+private fun NpwpField(
+    value:         String,
+    onValueChange: (String) -> Unit,
+    error:         String?,
+    isValid:       Boolean
+) {
+    val maxLength   = OccupationValidator.NPWP_LENGTH   // 16 — single source of truth
+    val currentLen  = value.length
+    val strokeColor = when {
+        error != null -> ErrorRed
+        isValid       -> ValidGreen
+        else          -> BorderGray
+    }
+
+    Column {
+        OutlinedTextField(
+            value           = value,
+            onValueChange   = { newVal ->
+                if (newVal.length <= maxLength) onValueChange(newVal)
+            },
+            placeholder     = { Text("NPWP (opsional)", color = HintGray, fontSize = 14.sp) },
+            isError         = error != null,
+            singleLine      = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            modifier        = Modifier.fillMaxWidth(),
+            shape           = FieldCorner,
+            colors          = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor      = if (isValid) ValidGreen else Purple10,
+                unfocusedBorderColor    = strokeColor,
+                errorBorderColor        = ErrorRed,
+                focusedContainerColor   = Color.White,
+                unfocusedContainerColor = Color.White,
+                errorContainerColor     = Color.White,
+                cursorColor             = Purple10
+            )
+        )
+
+        Row(
+            modifier          = Modifier
+                .fillMaxWidth()
+                .padding(top = 4.dp, start = 4.dp, end = 4.dp),
+            verticalAlignment = Alignment.Top
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                if (error != null) {
+                    Text(
+                        text     = error,
+                        fontSize = 12.sp,
+                        color    = ErrorRed
+                    )
+                } else {
+                    Text(
+                        text       = "Sesuai aturan pemerintah, NIK dipakai untuk NPWP. " +
+                                     "Kalau belum dipadanin, lakukan segera setelah registrasi ya!",
+                        fontSize   = 12.sp,
+                        color      = HintGray,
+                        lineHeight = 16.sp
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            Text(
+                text     = "$currentLen/$maxLength",
+                fontSize = 12.sp,
+                color    = when {
+                    error != null          -> ErrorRed
+                    currentLen == maxLength -> ValidGreen
+                    else                   -> HintGray
+                },
+                fontWeight = if (currentLen == maxLength) FontWeight.SemiBold else FontWeight.Normal
+            )
+        }
+    }
+}
+
 @Composable
 private fun CompanyNameField(
     value:                String,

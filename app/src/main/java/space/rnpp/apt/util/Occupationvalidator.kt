@@ -38,7 +38,7 @@ class OccupationValidator {
     fun validateNpwp(value: String): String? {
         if (value.isBlank())             return null
         if (!value.all { it.isDigit() }) return "NPWP must contain digits only"
-        if (value.length != 15)          return "NPWP must be exactly 15 digits"
+        if (value.length != NPWP_LENGTH)          return "NPWP must be exactly 15 digits"
         return null
     }
 
