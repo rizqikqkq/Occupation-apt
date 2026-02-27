@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    id("de.mannodermaus.android-junit5")
 }
 
 android {
@@ -38,6 +39,11 @@ android {
     }
     buildFeatures {
         compose = true
+    }
+    testOptions {
+        unitTests {
+            isReturnDefaultValues = true  // prevents NPE on Android SDK calls in tests
+        }
     }
 }
 
