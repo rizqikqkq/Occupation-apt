@@ -19,6 +19,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "ANDROID PRE TEST"
+rootProject.name = "APT"
 include(":app")
  

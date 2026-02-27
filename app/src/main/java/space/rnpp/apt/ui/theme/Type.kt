@@ -1,4 +1,4 @@
-package space.rnpp.androidpretest.ui.theme
+package space.rnpp.apt.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle

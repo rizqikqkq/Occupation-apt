@@ -5,13 +5,13 @@ plugins {
 }
 
 android {
-    namespace = "space.rnpp.androidpretest"
+    namespace = "space.rnpp.apt"
     compileSdk {
         version = release(36)
     }
 
     defaultConfig {
-        applicationId = "space.rnpp.androidpretest"
+        applicationId = "space.rnpp.apt"
         minSdk = 24
         targetSdk = 36
         versionCode = 1
@@ -50,6 +50,15 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.appcompat)
+    implementation(libs.material)
+    implementation(libs.androidx.activity)
+    implementation(libs.androidx.constraintlayout)
+
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
