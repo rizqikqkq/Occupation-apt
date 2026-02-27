@@ -2,14 +2,19 @@ package space.rnpp.apt.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-
-import space.rnpp.apt.model.*
-import space.rnpp.apt.util.OccupationValidator
-
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import space.rnpp.apt.model.CompanySuggestion
+import space.rnpp.apt.model.DummyOccupationRepository
+import space.rnpp.apt.model.FieldValidState
+import space.rnpp.apt.model.OccupationFormUiState
+import space.rnpp.apt.model.OccupationRepository
+import space.rnpp.apt.util.OccupationValidator
 
 class OccupationFormViewModel(
     private val repository: OccupationRepository = DummyOccupationRepository(),
@@ -34,8 +39,10 @@ class OccupationFormViewModel(
         companyNameValidationJob = viewModelScope.launch {
             delay(VALIDATION_DEBOUNCE_MS)
             val error = validator.validateCompanyName(value)
-            _uiState.update { it.copy(errors = it.errors.copy(companyNameError = error)) }
-            recomputeNextEnabled()
+            _uiState.update { state ->
+                state.copy(errors = state.errors.copy(companyNameError = error))
+            }
+            recompute()
         }
 
         companySuggestJob?.cancel()
@@ -43,97 +50,130 @@ class OccupationFormViewModel(
             companySuggestJob = viewModelScope.launch {
                 delay(SUGGEST_DEBOUNCE_MS)
                 val suggestions = repository.getCompanySuggestions(value)
-                _uiState.update {
-                    it.copy(
+                _uiState.update { state ->
+                    state.copy(
                         companySuggestions = suggestions,
                         showSuggestions    = suggestions.isNotEmpty()
                     )
                 }
             }
         } else {
-            _uiState.update { it.copy(companySuggestions = emptyList(), showSuggestions = false) }
+            _uiState.update { state ->
+                state.copy(companySuggestions = emptyList(), showSuggestions = false)
+            }
         }
     }
     fun onCompanySuggestionSelected(suggestion: CompanySuggestion) {
-        _uiState.update {
-            it.copy(
-                input = it.input.copy(companyName = suggestion.name),
+        _uiState.update { state ->
+            state.copy(
+                input              = state.input.copy(companyName = suggestion.name),
                 companySuggestions = emptyList(),
                 showSuggestions    = false,
-
-                errors = it.errors.copy(companyNameError = null)
+                errors             = state.errors.copy(companyNameError = null)
             )
         }
-        recomputeNextEnabled()
+        recompute()
     }
+
     fun onDismissSuggestions() {
-        _uiState.update { it.copy(showSuggestions = false) }
+        _uiState.update { state -> state.copy(showSuggestions = false) }
     }
     //endregion
 
     fun onCompanyAddressChanged(value: String) {
-        _uiState.update { it.copy(input = it.input.copy(companyAddress = value)) }
+        _uiState.update { state ->
+            state.copy(input = state.input.copy(companyAddress = value))
+        }
         addressDebounceJob?.cancel()
         addressDebounceJob = viewModelScope.launch {
             delay(VALIDATION_DEBOUNCE_MS)
             val error = validator.validateCompanyAddress(value)
-            _uiState.update { it.copy(errors = it.errors.copy(companyAddressError = error)) }
-            recomputeNextEnabled()
+            _uiState.update { state ->
+                state.copy(errors = state.errors.copy(companyAddressError = error))
+            }
+            recompute()
         }
     }
     fun onCityNameChanged(value: String) {
-        _uiState.update { it.copy(input = it.input.copy(cityName = value)) }
+        _uiState.update { state ->
+            state.copy(input = state.input.copy(cityName = value))
+        }
         cityDebounceJob?.cancel()
         cityDebounceJob = viewModelScope.launch {
             delay(VALIDATION_DEBOUNCE_MS)
             val error = validator.validateCityName(value)
-            _uiState.update { it.copy(errors = it.errors.copy(cityNameError = error)) }
-            recomputeNextEnabled()
+            _uiState.update { state ->
+                state.copy(errors = state.errors.copy(cityNameError = error))
+            }
+            recompute()
         }
     }
     fun onPhoneNumberChanged(value: String) {
-        val digitsOnly = value.filter { it.isDigit() }
-        _uiState.update { it.copy(input = it.input.copy(phoneNumber = digitsOnly)) }
+        val digitsOnly = value.filter { char -> char.isDigit() }
+        _uiState.update { state ->
+            state.copy(input = state.input.copy(phoneNumber = digitsOnly))
+        }
         phoneDebounceJob?.cancel()
         phoneDebounceJob = viewModelScope.launch {
             delay(VALIDATION_DEBOUNCE_MS)
             val error = validator.validatePhoneNumber(digitsOnly)
-            _uiState.update { it.copy(errors = it.errors.copy(phoneNumberError = error)) }
-            recomputeNextEnabled()
+            _uiState.update { state ->
+                state.copy(errors = state.errors.copy(phoneNumberError = error))
+            }
+            recompute()
         }
     }
     fun onNpwpChanged(value: String) {
-        val digitsOnly = value.filter { it.isDigit() }
-        _uiState.update { it.copy(input = it.input.copy(npwp = digitsOnly)) }
+        val digitsOnly = value.filter { char -> char.isDigit() }
+        // Enforce the max-length cap here — not in the Composable
+        val capped = digitsOnly.take(OccupationValidator.NPWP_LENGTH)
+        _uiState.update { state ->
+            state.copy(input = state.input.copy(npwp = capped))
+        }
         npwpDebounceJob?.cancel()
         npwpDebounceJob = viewModelScope.launch {
             delay(VALIDATION_DEBOUNCE_MS)
-            val error = validator.validateNpwp(digitsOnly)
-            _uiState.update { it.copy(errors = it.errors.copy(npwpError = error)) }
-            recomputeNextEnabled()
+            val error = validator.validateNpwp(capped)
+            _uiState.update { state ->
+                state.copy(errors = state.errors.copy(npwpError = error))
+            }
+            recompute()
         }
     }
     fun onNext() {
         val fullErrors = validator.validateAll(_uiState.value.input)
         if (fullErrors.hasErrors) {
-            _uiState.update { it.copy(errors = fullErrors) }
-            recomputeNextEnabled()
+            _uiState.update { state -> state.copy(errors = fullErrors) }
+            recompute()
             return
         }
         // TODO: do next action
     }
 
-    private fun recomputeNextEnabled() { //re-check field if value changed
+    private fun recompute() {
         val input  = _uiState.value.input
         val errors = _uiState.value.errors
 
         val mandatoryFilled =
             input.companyName.isNotBlank()    &&
-                    input.companyAddress.isNotBlank() &&
-                    input.cityName.isNotBlank()       &&
-                    input.phoneNumber.isNotBlank()
+            input.companyAddress.isNotBlank() &&
+            input.cityName.isNotBlank()       &&
+            input.phoneNumber.isNotBlank()
 
-        _uiState.update { it.copy(isNextEnabled = mandatoryFilled && !errors.hasErrors) }
+        val fieldValid = FieldValidState(
+            companyNameValid    = input.companyName.isNotBlank()    && errors.companyNameError    == null,
+            companyAddressValid = input.companyAddress.isNotBlank() && errors.companyAddressError == null,
+            cityNameValid       = input.cityName.isNotBlank()       && errors.cityNameError       == null,
+            phoneNumberValid    = input.phoneNumber.isNotBlank()    && errors.phoneNumberError    == null,
+            npwpValid           = input.npwp.isNotBlank()           && errors.npwpError           == null
+        )
+
+        _uiState.update { state ->
+            state.copy(
+                isNextEnabled = mandatoryFilled && !errors.hasErrors,
+                fieldValid    = fieldValid
+            )
+        }
     }
 
     companion object {

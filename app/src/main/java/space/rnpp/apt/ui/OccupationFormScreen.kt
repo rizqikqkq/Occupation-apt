@@ -20,7 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material3.Button
@@ -111,7 +111,7 @@ private fun OccupationFormContent(
         ) {
             IconButton(onClick = onBackPressed) {
                 Icon(
-                    imageVector        = Icons.Default.ArrowBack,
+                    imageVector        = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "Back",
                     tint               = TextBlack,
                     modifier           = Modifier.size(24.dp)
@@ -141,11 +141,10 @@ private fun OccupationFormContent(
                 color      = TextBlack,
                 lineHeight = 28.sp
             )
-
             Spacer(modifier = Modifier.height(6.dp))
-
             Text(
-                text       = "Isi detail tempat kerja kamu, termasuk nama resmi, alamat, dan nomor teleponnya.",
+                text       = "Isi detail tempat kerja kamu, termasuk nama resmi, " +
+                             "alamat, dan nomor teleponnya.",
                 fontSize   = 13.sp,
                 color      = SubtitleGray,
                 lineHeight = 18.sp
@@ -158,6 +157,7 @@ private fun OccupationFormContent(
                 onValueChange        = onCompanyNameChanged,
                 onCleared            = onCompanyNameCleared,
                 error                = uiState.errors.companyNameError,
+                isValid              = uiState.fieldValid.companyNameValid,
                 suggestions          = uiState.companySuggestions,
                 showSuggestions      = uiState.showSuggestions,
                 onSuggestionSelected = onSuggestionSelected,
@@ -172,7 +172,7 @@ private fun OccupationFormContent(
                 placeholder   = "Alamat",
                 hint          = "Contoh: Grha BNI Jl. Jend Sudirman No.1",
                 error         = uiState.errors.companyAddressError,
-                isValid       = uiState.input.companyAddress.isNotBlank() && uiState.errors.companyAddressError == null,
+                isValid       = uiState.fieldValid.companyAddressValid,
                 singleLine    = false
             )
 
@@ -184,7 +184,7 @@ private fun OccupationFormContent(
                 placeholder   = "Kota/kabupaten",
                 hint          = null,
                 error         = uiState.errors.cityNameError,
-                isValid       = uiState.input.cityName.isNotBlank() && uiState.errors.cityNameError == null
+                isValid       = uiState.fieldValid.cityNameValid
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -193,7 +193,7 @@ private fun OccupationFormContent(
                 value         = uiState.input.phoneNumber,
                 onValueChange = onPhoneNumberChanged,
                 error         = uiState.errors.phoneNumberError,
-                isValid       = uiState.input.phoneNumber.isNotBlank() && uiState.errors.phoneNumberError == null
+                isValid       = uiState.fieldValid.phoneNumberValid
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -202,8 +202,7 @@ private fun OccupationFormContent(
                 value         = uiState.input.npwp,
                 onValueChange = onNpwpChanged,
                 error         = uiState.errors.npwpError,
-                isValid       = uiState.input.npwp.isNotBlank() &&
-                                uiState.errors.npwpError == null
+                isValid       = uiState.fieldValid.npwpValid
             )
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -247,7 +246,7 @@ private fun NpwpField(
     error:         String?,
     isValid:       Boolean
 ) {
-    val maxLength   = OccupationValidator.NPWP_LENGTH   // 16 — single source of truth
+    val maxLength   = OccupationValidator.NPWP_LENGTH
     val currentLen  = value.length
     val strokeColor = when {
         error != null -> ErrorRed
@@ -258,9 +257,7 @@ private fun NpwpField(
     Column {
         OutlinedTextField(
             value           = value,
-            onValueChange   = { newVal ->
-                if (newVal.length <= maxLength) onValueChange(newVal)
-            },
+            onValueChange   = onValueChange,   // plain passthrough — ViewModel enforces the cap
             placeholder     = { Text("NPWP (opsional)", color = HintGray, fontSize = 14.sp) },
             isError         = error != null,
             singleLine      = true,
@@ -286,11 +283,7 @@ private fun NpwpField(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 if (error != null) {
-                    Text(
-                        text     = error,
-                        fontSize = 12.sp,
-                        color    = ErrorRed
-                    )
+                    Text(text = error, fontSize = 12.sp, color = ErrorRed)
                 } else {
                     Text(
                         text       = "Sesuai aturan pemerintah, NIK dipakai untuk NPWP. " +
@@ -301,18 +294,17 @@ private fun NpwpField(
                     )
                 }
             }
-
             Spacer(modifier = Modifier.width(8.dp))
-
             Text(
-                text     = "$currentLen/$maxLength",
-                fontSize = 12.sp,
-                color    = when {
-                    error != null          -> ErrorRed
+                text       = "$currentLen/$maxLength",
+                fontSize   = 12.sp,
+                color      = when {
+                    error != null           -> ErrorRed
                     currentLen == maxLength -> ValidGreen
-                    else                   -> HintGray
+                    else                    -> HintGray
                 },
-                fontWeight = if (currentLen == maxLength) FontWeight.SemiBold else FontWeight.Normal
+                fontWeight = if (currentLen == maxLength) FontWeight.SemiBold
+                             else FontWeight.Normal
             )
         }
     }
@@ -324,13 +316,13 @@ private fun CompanyNameField(
     onValueChange:        (String) -> Unit,
     onCleared:            () -> Unit,
     error:                String?,
+    isValid:              Boolean,
     suggestions:          List<CompanySuggestion>,
     showSuggestions:      Boolean,
     onSuggestionSelected: (CompanySuggestion) -> Unit,
     onDismiss:            () -> Unit
 ) {
-    val isValid       = value.isNotBlank() && error == null
-    val strokeColor   = when {
+    val strokeColor = when {
         error != null -> ErrorRed
         isValid       -> ValidGreen
         else          -> BorderGray
@@ -338,13 +330,10 @@ private fun CompanyNameField(
 
     Column {
         Box(modifier = Modifier.fillMaxWidth()) {
-
             OutlinedTextField(
                 value         = value,
                 onValueChange = onValueChange,
-                placeholder   = {
-                    Text("Nama tempat kerja", color = HintGray, fontSize = 14.sp)
-                },
+                placeholder   = { Text("Nama tempat kerja", color = HintGray, fontSize = 14.sp) },
                 trailingIcon  = if (value.isNotEmpty()) {
                     {
                         IconButton(onClick = onCleared) {
@@ -382,9 +371,7 @@ private fun CompanyNameField(
             ) {
                 suggestions.forEach { suggestion ->
                     DropdownMenuItem(
-                        text    = {
-                            Text(suggestion.name, fontSize = 14.sp, color = TextBlack)
-                        },
+                        text    = { Text(suggestion.name, fontSize = 14.sp, color = TextBlack) },
                         onClick = { onSuggestionSelected(suggestion) }
                     )
                 }
@@ -420,7 +407,6 @@ private fun PhoneField(
     var selectedCode by remember { mutableStateOf("+62") }
     val countryCodes = listOf("+62", "+1", "+44", "+81", "+65")
 
-    // CHANGE 5: pick border color based on state
     val strokeColor = when {
         error != null -> ErrorRed
         isValid       -> ValidGreen
@@ -435,7 +421,6 @@ private fun PhoneField(
                 .background(Color.White, FieldCorner),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // (+62) dropdown prefix
             Box {
                 Row(
                     modifier = Modifier
@@ -456,7 +441,6 @@ private fun PhoneField(
                         modifier           = Modifier.size(18.dp)
                     )
                 }
-
                 DropdownMenu(
                     expanded         = expanded,
                     onDismissRequest = { expanded = false },
@@ -465,16 +449,12 @@ private fun PhoneField(
                     countryCodes.forEach { code ->
                         DropdownMenuItem(
                             text    = { Text(code, fontSize = 14.sp) },
-                            onClick = {
-                                selectedCode = code
-                                expanded = false
-                            }
+                            onClick = { selectedCode = code; expanded = false }
                         )
                     }
                 }
             }
 
-            // Vertical separator
             Box(
                 modifier = Modifier
                     .width(1.dp)
@@ -482,7 +462,6 @@ private fun PhoneField(
                     .background(BorderGray)
             )
 
-            // Phone input — no border (outer Row has the border)
             OutlinedTextField(
                 value           = value,
                 onValueChange   = onValueChange,
